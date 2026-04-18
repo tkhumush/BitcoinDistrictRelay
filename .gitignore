@@ -1,0 +1,23 @@
+# Environment files (contain secrets)
+.env
+.env.local
+.env.production
+
+# Docker volumes (local data)
+strfry-db/
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# SSL certificates (managed by Caddy or certbot)
+certbot-conf/
+certbot-www/
