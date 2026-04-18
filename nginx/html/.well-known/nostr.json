@@ -1,0 +1,19 @@
+{
+  "names": {
+    "_": "812cff5afa5d9c3b4082b82c70365cfd2d279c27aa912313b8fcbfd65c40aeeb",
+    "tkay": "9cb3545c36940d9a2ef86d50d5c7a8fab90310cc898c4344bcfc4c822ff47bca",
+    "bitcoindistrict": "812cff5afa5d9c3b4082b82c70365cfd2d279c27aa912313b8fcbfd65c40aeeb",
+    "alexbarq": "f9fc3e560de034a66b8dab4dabe7bced13435293b363cb979a1933f82299f805"
+  },
+  "relays": {
+    "812cff5afa5d9c3b4082b82c70365cfd2d279c27aa912313b8fcbfd65c40aeeb": [
+      "wss://relay.bitcoindistrict.org"
+    ],
+    "9cb3545c36940d9a2ef86d50d5c7a8fab90310cc898c4344bcfc4c822ff47bca": [
+      "wss://relay.bitcoindistrict.org"
+    ],
+    "f9fc3e560de034a66b8dab4dabe7bced13435293b363cb979a1933f82299f805": [
+      "wss://relay.bitcoindistrict.org"
+    ]
+  }
+}

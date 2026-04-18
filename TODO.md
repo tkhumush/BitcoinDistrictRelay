@@ -37,9 +37,11 @@ BitcoinDistrictRelay is a fork of [nostrarabiarelay](https://github.com/tkhumush
 - [ ] **Update README.md** — Rewrite from scratch for BitcoinDistrictRelay (current README is well-done but needs final review for accuracy after all changes)
 
 ### 🟡 Medium Priority (Polish & Hardening)
+- [x] **NIP-05 support** — Added `/.well-known/nostr.json` with CORS headers in Caddyfile; created `nginx/html/.well-known/nostr.json` with initial community pubkeys and relay mappings
 - [ ] **Customize nginx configs** — Review `nginx/conf.d/*.conf` for completeness; they're currently correct but nginx is superseded by Caddy in the deployment
 - [ ] **Expand noteguard whitelist** — Add Bitcoin District community members as they're identified (currently only 3 pubkeys)
 - [ ] **Expand blossom retention rules** — Sync pubkeys as whitelist grows
+- [ ] **Expand nostr.json** — Add new community members' NIP-05 mappings as whitelist grows
 - [ ] **Customize landing page** — `nginx/html/index.html` needs a proper Bitcoin District branded page (currently inherited from nostrarabia)
 
 ### 🟢 Nice to Have (Post-Launch)

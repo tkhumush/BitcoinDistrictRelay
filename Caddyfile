@@ -1,11 +1,23 @@
 # Caddy configuration for Bitcoin District
 # Automatic HTTPS enabled for all domains
 
-# Main domain - serves static content
+# Main domain - serves static content + NIP-05
 bitcoindistrict.org, www.bitcoindistrict.org {
     # Serve static files
     root * /usr/share/caddy
     file_server
+
+    # NIP-05: /.well-known/nostr.json
+    # Must serve with CORS and Content-Type for Nostr clients
+    handle_path /.well-known/nostr.json {
+        header Content-Type application/json
+        header Access-Control-Allow-Origin *
+        header Access-Control-Allow-Methods "GET, OPTIONS"
+        header Cache-Control "public, max-age=3600"
+        file_server {
+            root /usr/share/caddy
+        }
+    }
 
     # Security headers
     header {
