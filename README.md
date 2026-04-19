@@ -1,15 +1,20 @@
-# Bitcoin District Relay
+# BitcoinDistrictRelay
 
-A whitelisted Nostr relay powered by [strfry](https://github.com/hoytech/strfry) with [noteguard](https://github.com/damus-io/noteguard) plugin for access control, plus [blossom-server](https://github.com/hzrd149/blossom-server) for media/blob storage.
+A whitelisted Nostr relay powered by [strfry](https://github.com/hoytech/strfry) with [noteguard](https://github.com/damus-io/noteguard) for access control, plus [blossom-server](https://github.com/hzrd149/blossom-server) for media storage.
 
-## Features
+## Architecture
 
-- High-performance Nostr relay using strfry
-- Whitelist-based access control via noteguard
-- Media/blob storage server via blossom-server
-- Containerized deployment with Docker
-- Automated CI/CD pipeline with GitHub Actions
-- Easy configuration management
+| Service | Domain | Port | Purpose |
+|---------|--------|------|---------|
+| strfry relay | `relay.bitcoindistrict.org` | 7777 | Nostr relay (WebSocket) |
+| blossom-server | `cherry.bitcoindistrict.org` | 3000 | Media/blob uploads (50MB max) |
+| caddy | — | 80/443 | Reverse proxy + auto HTTPS |
+
+> **Note:** The apex domain `bitcoindistrict.org` and NIP-05 endpoint are served externally — not by this relay's Caddy.
+
+## ⚠️ Migration Project
+
+This is a **migration** from a friend's existing server, not a fresh deployment. See [MIGRATION.md](MIGRATION.md) for the step-by-step data migration guide.
 
 ## Quick Start
 
@@ -18,477 +23,167 @@ A whitelisted Nostr relay powered by [strfry](https://github.com/hoytech/strfry)
 - Docker with Compose plugin (v2)
 - Git
 
-### Local Development
+### Setup
 
-1. Clone this repository:
+1. Clone and configure:
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/tkhumush/bitcoindistrictrelay.git
 cd bitcoindistrictrelay
+
+# Create secrets file
+cp .env.example .env
+# Edit .env — set BLOSSOM_ADMIN_PASSWORD
+nano .env
 ```
 
-2. Configure your whitelist by editing `noteguard.toml`:
-```toml
-[filters.whitelist]
-pubkeys = [
-    "your-npub-in-hex-format-here",
-    "another-npub-in-hex-format"
-]
-```
+2. Customize the whitelist in `noteguard.toml` — add your community pubkeys in hex format.
 
-> **Note**: Npubs need to be converted to hex format. You can use tools like [nostr.band](https://nostr.band/) or the `nak` CLI to convert npub to hex.
-
-3. (Optional) Update relay information in `strfry.conf`:
-```
-relay {
-    info {
-        name = "Your Relay Name"
-        description = "Your relay description"
-        pubkey = "your-admin-pubkey-hex"
-        contact = "your-contact-info"
-    }
-}
-```
-
-4. Build and run:
+3. Start services:
 ```bash
 docker compose up -d
 ```
 
-5. Check logs:
+4. Verify:
 ```bash
-docker compose logs -f
+# Relay NIP-11
+curl http://localhost:7777 -H "Accept: application/nostr+json"
+
+# Blossom health
+curl http://localhost:3000/
 ```
 
-Your services will be available at:
-- **Production (with SSL)**: `wss://relay.bitcoindistrict.org` and `https://cherry.bitcoindistrict.org`
-- **Local development**: `ws://localhost:7777` (relay) and `http://localhost:3000` (media)
-
-### Testing Your Relay
-
-Use a Nostr client or the WebSocket testing tool to connect to your relay:
-
-```bash
-# Test with websocat (if installed)
-echo '["REQ","test-sub",{"limit":1}]' | websocat ws://localhost:7777
-```
+Local access: `ws://localhost:7777` (relay) · `http://localhost:3000` (blossom)
 
 ## Configuration
 
 ### Adding Whitelisted Users
 
-To add users who can post to your relay:
+Edit `noteguard.toml` — pubkeys must be in hex (not npub). Three files must stay in sync:
 
-1. Get their npub (Nostr public key)
-2. Convert to hex format (64 characters)
-3. Add to `noteguard.toml`:
+1. **`noteguard.toml`** — relay write access
+2. **`blossom.yml`** — media upload/storage rules (YAML anchor `&community`)
+3. **`nginx/html/.well-known/nostr.json`** — NIP-05 identifiers (served externally)
 
-```toml
-[filters.whitelist]
-pubkeys = [
-    "16c21558762108afc34e4ff19e4ed51d9a48f79e0c34531efc423d21ab435e93"
-]
-```
+After changes: `docker compose restart nostr-relay`
 
-4. Restart the relay:
+### Converting npub to hex
+
 ```bash
-docker compose restart
+# Using nak CLI
+go install github.com/fiatjaf/nak@latest
+nak decode npub1...
+
+# Online: https://nostr.band
 ```
 
-### Relay Settings
+### Relay Settings (`strfry.conf`)
 
-Modify `strfry.conf` to customize:
-- Database size (`dbParams.mapsize`)
-- Port and binding (`relay.bind` and `relay.port`)
-- Event size limits
-- Rate limiting
-- Compression settings
+- `relay.info.name` / `.description` — NIP-11 relay info
+- `relay.info.pubkey` — admin contact pubkey
+- `events.maxEventSize` — max event size (64KB default)
+- `dbParams.mapsize` — LMDB size (10GB default)
+- `relay.nofiles` — set to `0` for container compatibility
 
-### Noteguard Filters
+### Blossom Settings (`blossom.yml`)
 
-Beyond whitelisting, noteguard supports:
-
-- **Rate limiting**: Limit notes per minute/hour
-- **Kind filtering**: Allow only specific event types
-- **Content filtering**: Block specific words
-
-See `noteguard.toml` for examples (currently commented out).
-
-### Blossom Server Configuration
-
-The blossom-server provides media and blob storage for Nostr. Configure it via `blossom.yml`:
-
-**Key settings:**
-
-1. **Admin Dashboard** (accessible at `http://localhost:3000`):
-```yaml
-dashboard:
-  enabled: true
-  username: admin
-  password: "${BLOSSOM_ADMIN_PASSWORD}"
-```
-
-Set the `BLOSSOM_ADMIN_PASSWORD` environment variable or it will be auto-generated on startup.
-
-2. **Storage Backend**:
-```yaml
-storage:
-  backend: local  # or "s3" for cloud storage
-  local:
-    dir: ./data/blobs
-```
-
-3. **Upload Settings**:
-```yaml
-upload:
-  enabled: true
-  requireAuth: true  # Require Nostr authentication to upload
-```
-
-4. **Media Processing**:
-```yaml
-media:
-  enabled: true
-  image:
-    quality: 85
-    outputFormat: "webp"
-    maxWidth: 1920
-    maxHeight: 1080
-  video:
-    quality: 85
-    maxHeight: 1080
-    format: "mp4"
-```
-
-5. **Retention Rules** (automatic cleanup):
-```yaml
-storage:
-  rules:
-    - type: text/*
-      expiration: 1 month
-    - type: "image/*"
-      expiration: 2 weeks
-    - type: "video/*"
-      expiration: 1 week
-```
-
-**Environment Variables:**
-- `BLOSSOM_ADMIN_PASSWORD`: Admin dashboard password (recommended to set via GitHub secrets for deployment)
-
-### Caddy Reverse Proxy with Automatic HTTPS
-
-The deployment uses **Caddy** as a reverse proxy with **fully automatic HTTPS** - no manual SSL certificate management needed!
-
-**Domains configured:**
-- `bitcoindistrict.org` - Main landing page
-- `relay.bitcoindistrict.org` - Nostr relay with WebSocket support
-- `cherry.bitcoindistrict.org` - Blossom media server
-
-**Features:**
-- ✨ **Automatic HTTPS** - Caddy obtains and renews SSL certificates automatically
-- 🔄 **Auto-renewal** - Certificates renew automatically before expiration
-- 🚀 **HTTP/3 support** - Latest HTTP protocol for better performance
-- 🔒 **Security headers** - Built-in best practices
-- 📡 **WebSocket support** - Native support for Nostr relay
-- 📤 **Large file uploads** - Configured for media server (100MB limit)
-
-**How it works:**
-
-Caddy automatically:
-1. Obtains SSL certificates from Let's Encrypt on first start
-2. Redirects HTTP to HTTPS
-3. Renews certificates before they expire
-4. Configures optimal TLS settings
-
-**Important:** Ensure your DNS A records point to your server IP and ports 80/443 are accessible:
-- `bitcoindistrict.org` → Your server IP
-- `relay.bitcoindistrict.org` → Your server IP
-- `cherry.bitcoindistrict.org` → Your server IP
+- `publicDomain` — domain for blob URLs (`cherry.bitcoindistrict.org`)
+- `storage.rules` — retention by pubkey + file type (100yr = effectively permanent)
+- `upload.requireAuth` — require Nostr auth to upload
+- `media.image` / `media.video` — optimization settings
 
 ## Deployment
 
-### GitHub Actions CI/CD
+### CI/CD (GitHub Actions)
 
-This repository includes automated CI/CD via GitHub Actions:
-
-1. **Automatic builds**: Every push to `main` builds a Docker image
-2. **Container Registry**: Images are pushed to GitHub Container Registry
-3. **Versioning**: Automatic tagging with git SHA and branch name
-4. **Optimized deployment**: Only pulls the nostr-relay image (changes frequently); base images are cached
-
-### Setting Up Deployment
-
-To enable automatic deployment to your server:
-
-1. Add GitHub secrets:
-   - `DEPLOY_HOST`: Your server IP/hostname
-   - `DEPLOY_USER`: SSH username
-   - `DEPLOY_SSH_KEY`: SSH private key
-   - `BLOSSOM_ADMIN_PASSWORD`: Password for blossom admin dashboard (optional)
-
-2. Uncomment the `deploy` job in `.github/workflows/deploy.yml`
-
-3. Ensure port 80 is accessible for SSL certificate generation
-
-4. Push to main branch to trigger deployment
+Pushing to `main` triggers:
+1. Docker image build → `ghcr.io/tkhumush/bitcoindistrictrelay`
+2. SSH deployment to server (requires GitHub secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`)
 
 ### Manual Deployment
 
-On your server:
-
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/bitcoindistrictrelay.git
+# On server
+git clone https://github.com/tkhumush/bitcoindistrictrelay.git
 cd bitcoindistrictrelay
-
-# Pull the latest nostr-relay image
+cp .env.example .env  # Set BLOSSOM_ADMIN_PASSWORD
 docker compose pull nostr-relay
-
-# Start all services - Caddy will automatically obtain SSL certificates
 docker compose up -d
-
-# That's it! Caddy handles everything automatically.
-# Wait 30-60 seconds for SSL certificates to be obtained on first run.
 ```
 
-**First deployment:** Caddy will automatically obtain SSL certificates from Let's Encrypt. This takes 30-60 seconds.
+Caddy automatically obtains SSL certificates on first request (~30-60 seconds).
 
-**Subsequent deployments:** Caddy reuses existing certificates instantly.
+### DNS Configuration
 
-### Production Considerations
-
-**1. SSL Certificates:**
-- Caddy handles SSL completely automatically
-- Certificates renew automatically before expiration
-- Zero manual certificate management required
-
-**2. Persistent Storage & Backups:**
-```bash
-# Backup relay database
-docker compose exec nostr-relay tar czf /backup/strfry-db-$(date +%Y%m%d).tar.gz /app/strfry-db
-
-# Backup blossom media
-docker compose exec blossom-server tar czf /backup/blossom-data-$(date +%Y%m%d).tar.gz /app/data
-
-# Backup SSL certificates (Caddy data volume)
-docker run --rm -v nostr-relay_caddy-data:/data -v $(pwd):/backup alpine tar czf /backup/caddy-data-$(date +%Y%m%d).tar.gz -C /data .
+```
+relay.bitcoindistrict.org    →  NEW_SERVER_IP
+cherry.bitcoindistrict.org   →  NEW_SERVER_IP
 ```
 
-**3. Monitoring:**
-- Health checks are configured for all services
-- Check service status: `docker compose ps`
-- View logs: `docker compose logs -f [service-name]`
-
-**4. Firewall Configuration:**
-```bash
-# Allow HTTP/HTTPS only (nginx handles routing)
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw enable
-
-# Block direct access to backend services
-# Services only accessible through nginx proxy
-```
-
-**5. Environment Variables:**
-- Set `BLOSSOM_ADMIN_PASSWORD` via GitHub secrets or `.env` file
-- Never commit secrets to the repository
-
-**6. DNS Configuration:**
-Ensure your DNS A records are correctly configured:
-```
-bitcoindistrict.org       → 172.105.154.238
-relay.bitcoindistrict.org → 172.105.154.238
-cherry.bitcoindistrict.org  → 172.105.154.238
-```
-
-## Converting Npub to Hex
-
-### Using nak CLI
-
-```bash
-# Install nak
-go install github.com/fiatjaf/nak@latest
-
-# Convert npub to hex
-nak decode npub1...
-```
-
-### Using online tools
-
-- [nostr.band](https://nostr.band/)
-- [Nostr.guru](https://nostr.guru/)
+Ports 80 and 443 must be open for Caddy's automatic HTTPS.
 
 ## Monitoring
 
-View real-time logs:
 ```bash
-# Relay logs
-docker compose logs -f nostr-relay
+# Logs
+docker compose logs -f nostr-relay    # relay
+docker compose logs -f blossom-server  # media
+docker compose logs -f caddy           # proxy
 
-# Blossom server logs
-docker compose logs -f blossom-server
+# Status
+docker compose ps
 
-# All services
-docker compose logs -f
-```
+# NIP-11 (production)
+curl -s https://relay.bitcoindistrict.org -H "Accept: application/nostr+json" | jq .
 
-Check relay info (NIP-11):
-```bash
-# Production
-curl https://relay.bitcoindistrict.org -H "Accept: application/nostr+json"
-
-# Local
-curl http://localhost:7777 -H "Accept: application/nostr+json"
-```
-
-Access blossom admin dashboard:
-```
-Production: https://cherry.bitcoindistrict.org
-Local: http://localhost:3000
-```
-Login with username `admin` and the password set in `BLOSSOM_ADMIN_PASSWORD`
-
-Check Caddy status and configuration:
-```bash
-# View Caddy logs
-docker compose logs -f caddy
-
-# Verify Caddyfile syntax
+# Caddy config validation
 docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
-
-# Reload Caddy configuration
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
-SSL certificate status (automatic with Caddy):
-```bash
-# View Caddy certificates
-docker compose exec caddy caddy list-modules | grep tls
-
-# Caddy automatically renews certificates - no manual action needed
-```
+See [HEALTH_CHECK.md](HEALTH_CHECK.md) for full verification procedures.
 
 ## Troubleshooting
 
-### Relay won't start
+| Symptom | Fix |
+|---------|-----|
+| 502 Bad Gateway | `docker compose restart nostr-relay blossom-server` |
+| Events rejected | Pubkey not in `noteguard.toml` whitelist |
+| SSL cert failure | DNS A records must point to server IP; ports 80/443 open |
+| Upload fails | File exceeds 50MB limit |
+| nofiles error | `nofiles=0` in strfry.conf (already set) |
 
-Check logs:
+More in [HEALTH_CHECK.md](HEALTH_CHECK.md).
+
+## Data Migration
+
+See [MIGRATION.md](MIGRATION.md) for the complete migration guide including:
+- Strfry LMDB database migration
+- Blossom media file migration
+- DNS cutover coordination
+- Post-migration verification
+
+## Backup
+
 ```bash
-docker compose logs nostr-relay
-```
+# Strfry database
+docker compose exec nostr-relay tar czf - /app/strfry-db > backup-strfry-$(date +%Y%m%d).tar.gz
 
-### Events being rejected
+# Blossom data (blobs + SQLite)
+docker compose exec blossom-server tar czf - /app/data > backup-blossom-$(date +%Y%m%d).tar.gz
 
-1. Verify npub is in hex format (64 characters)
-2. Check noteguard.toml configuration
-3. Review logs for rejection reasons
-
-### Database issues
-
-If you need to reset the database:
-```bash
-docker compose down -v
-docker compose up -d
-```
-
-### SSL/HTTPS issues
-
-**Caddy fails to obtain certificates:**
-1. Verify DNS records are correctly pointed to your server
-2. Wait a few minutes for DNS propagation
-3. Check if ports 80 and 443 are accessible from the internet
-4. Review Caddy logs: `docker compose logs caddy`
-5. Ensure no other service is using ports 80/443
-
-**502 Bad Gateway:**
-1. Check if backend services are running: `docker compose ps`
-2. Check backend service logs for errors
-3. Verify Caddyfile configuration: `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile`
-
-**Caddy advantages over nginx/certbot:**
-- No manual certificate generation needed
-- No health check issues
-- Simpler configuration
-- Automatic renewal without cron jobs
-- Built-in HTTP/3 support
-
-## Architecture
-
-```
-┌─────────────────┐
-│  Nostr Client   │
-└────────┬────────┘
-         │ WSS/HTTPS
-         │
-         ▼
-┌─────────────────────────────────────────────────┐
-│              Internet (DNS)                     │
-│  bitcoindistrict.org / strfry / media subdomains    │
-└────────────────────┬────────────────────────────┘
-                     │ Port 80/443
-                     ▼
-         ┌───────────────────────┐
-         │    Nginx Proxy        │
-         │   + Let's Encrypt     │
-         │   (SSL/TLS Handler)   │
-         └───────┬───────────┬───┘
-                 │           │
-    :7777 (WS)   │           │   :3000 (HTTP)
-                 ▼           ▼
-    ┌────────────────┐  ┌──────────────────┐
-    │  strfry relay  │  │  blossom-server  │
-    │                │  │                  │
-    │ ┌───────────┐  │  │ ┌──────────────┐ │
-    │ │noteguard  │  │  │ │ Media Store  │ │
-    │ │(whitelist)│  │  │ │   (blobs)    │ │
-    │ └───────────┘  │  │ └──────────────┘ │
-    │                │  │                  │
-    │ ┌───────────┐  │  │ ┌──────────────┐ │
-    │ │   LMDB    │  │  │ │    SQLite    │ │
-    │ │ (database)│  │  │ │  (metadata)  │ │
-    │ └───────────┘  │  │ └──────────────┘ │
-    └────────────────┘  └──────────────────┘
-         │                      │
-         └──────────┬───────────┘
-                    │
-            ┌───────▼───────┐
-            │ Docker Network│
-            │ (nostr-network)│
-            └───────────────┘
-
-All services run in Docker containers with:
-- Automatic restarts
-- Health checks
-- Persistent volumes
-- Isolated networking
+# Caddy certificates
+docker run --rm -v bitcoindistrictrelay_caddy-data:/data -v $(pwd):/backup alpine \
+  tar czf /backup/backup-caddy-$(date +%Y%m%d).tar.gz -C /data .
 ```
 
 ## Resources
 
-- [Strfry Documentation](https://github.com/hoytech/strfry)
-- [Noteguard Repository](https://github.com/damus-io/noteguard)
+- [Strfry](https://github.com/hoytech/strfry)
+- [Noteguard](https://github.com/damus-io/noteguard)
 - [Blossom Server](https://github.com/hzrd149/blossom-server)
-- [Blossom Protocol Specification](https://github.com/hzrd149/blossom)
+- [Blossom Protocol](https://github.com/hzrd149/blossom)
 - [Nostr Protocol](https://github.com/nostr-protocol/nostr)
-- [NIPs (Nostr Implementation Possibilities)](https://github.com/nostr-protocol/nips)
+- [NIPs](https://github.com/nostr-protocol/nips)
 
 ## License
 
-This configuration is provided as-is. Please refer to the individual licenses of strfry and noteguard for their respective terms.
-
-## Contributing
-
-Contributions are welcome! Please open an issue or pull request.
-
-## Support
-
-For issues specific to:
-- Strfry: [strfry issues](https://github.com/hoytech/strfry/issues)
-- Noteguard: [noteguard issues](https://github.com/damus-io/noteguard/issues)
-- Blossom Server: [blossom-server issues](https://github.com/hzrd149/blossom-server/issues)
-- This setup: Open an issue in this repository
-
-
-## Deployment Status
-Last deployed: Tue Oct 28 22:42:48 EDT 2025
-# Docker Compose installed - ready for deployment
+Configuration is provided as-is. See individual component licenses (strfry, noteguard, blossom-server).
