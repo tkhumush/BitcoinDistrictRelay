@@ -154,6 +154,10 @@ media:
 
 # Config for the /list endpoint
 list:
+  # Enable the GET /list/:pubkey endpoint (disabled by default in newer
+  # blossom-server; BUD-02 marks it optional). Needed for the dashboard
+  # upload form to finish loading and for clients that enumerate blobs.
+  enabled: true
   # Don't require auth to list blobs
   requireAuth: false
   # Allow listing other users' blobs
