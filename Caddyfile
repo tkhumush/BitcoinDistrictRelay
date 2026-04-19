@@ -73,9 +73,9 @@ cherry.bitcoindistrict.org {
         }
     }
 
-    # Allow large file uploads (100MB)
+    # Allow large file uploads (50MB)
     request_body {
-        max_size 100MB
+        max_size 50MB
     }
 
     # Security headers
