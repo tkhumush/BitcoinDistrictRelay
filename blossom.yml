@@ -63,8 +63,9 @@ storage:
     # bdi:          87789f8ef4ae61e94cbf1f929b3e00ccea3f08e4d0d9d9cc979ddbefa8e2ccb2
     # dmvbtcnotifier: ab3d7eec2613e3e47bd52005d6e7b8956c3797317dfccc75944249c4dc9f7a1b
   rules:
-    # Text files - kept permanently
+    # Text files - 100 years (effectively permanent; schema requires expiration)
     - type: text/*
+      expiration: 100 years
       pubkeys: &community
         - "de2d9f416ea6c60097dfdb78f03469c095cc8d6d811532844c4ce0de2cd1bb2c"  # hey
         - "d16c7d237241d25263a3138a0e1b1d7720b39a614cffbea269b60c8626b2e5bf"  # dcbitdevs
@@ -83,17 +84,21 @@ storage:
         - "cf17edc05f702a2937efd831e9085ac86db73a24b01de9c22450e0a65d8e8439"  # brrr
         - "87789f8ef4ae61e94cbf1f929b3e00ccea3f08e4d0d9d9cc979ddbefa8e2ccb2"  # bdi
         - "ab3d7eec2613e3e47bd52005d6e7b8956c3797317dfccc75944249c4dc9f7a1b"  # dmvbtcnotifier
-    # Images - kept permanently
+    # Images - 100 years (effectively permanent)
     - type: "image/*"
+      expiration: 100 years
       pubkeys: *community
-    # Videos - kept permanently
+    # Videos - 100 years (effectively permanent)
     - type: "video/*"
+      expiration: 100 years
       pubkeys: *community
-    # Models - kept permanently
+    # Models - 100 years (effectively permanent)
     - type: "model/*"
+      expiration: 100 years
       pubkeys: *community
-    # Everything else - kept permanently
+    # Everything else - 100 years (effectively permanent)
     - type: "*"
+      expiration: 100 years
       pubkeys: *community
 
 # Config for the /upload endpoint
