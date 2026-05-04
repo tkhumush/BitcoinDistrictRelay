@@ -28,6 +28,14 @@ relay.bitcoindistrict.org {
 
 # Blossom media server - large file uploads
 cherry.bitcoindistrict.org {
+    # Primal iOS sends t:"upload" auth for all uploads but hits PUT /media first.
+    # /media requires t:"media" → 403. Rewrite to /upload so the auth verb matches.
+    @media-put {
+        method PUT
+        path /media
+    }
+    rewrite @media-put /upload
+
     # Reverse proxy to blossom server
     reverse_proxy blossom-server:3000 {
         # Large file upload support
@@ -39,6 +47,14 @@ cherry.bitcoindistrict.org {
         transport http {
             read_timeout 600s
             write_timeout 600s
+        }
+
+        # blossom-server returns 201 Created for new uploads;
+        # Primal iOS expects 200 OK (same as blossom.primal.net).
+        @created status 201
+        handle_response @created {
+            copy_response_headers
+            copy_response 200
         }
     }
 
