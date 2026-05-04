@@ -113,7 +113,7 @@ upload:
 # Config for the /media endpoint (with processing)
 media:
   # Enable /media endpoint with image/video optimization
-  enabled: true
+  enabled: false
   # Require authentication to upload to /media
   requireAuth: true
   # Only check rules that include "pubkeys"
