@@ -94,9 +94,8 @@ jobs:
             # Set environment variables for docker compose
             export BLOSSOM_ADMIN_PASSWORD="${{ secrets.BLOSSOM_ADMIN_PASSWORD }}"
 
-            # Pull only the nostr-relay image (changes frequently from CI)
-            # Base images (caddy, blossom) rarely change and will use cached versions
-            docker compose pull nostr-relay
+            # Pull service images to pick up updates
+            docker compose pull nostr-relay blossom-server
 
             # Stop and remove old nginx/certbot containers (migrated to Caddy)
             echo "Stopping old nginx/certbot containers..."
