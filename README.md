@@ -186,4 +186,4 @@ docker run --rm -v bitcoindistrictrelay_caddy-data:/data -v $(pwd):/backup alpin
 
 ## License
 
-Configuration is provided as-is. See individual component licenses (strfry, noteguard, blossom-server).
+Configuration is provided as-is. See individual component licenses (strfry, noteguard, blossom-server).# Last updated: 2026-05-04T12:16:33Z
